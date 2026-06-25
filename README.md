@@ -21,8 +21,6 @@ pip install -r requirements.txt
 
 ### Training
 
-The model was trained on 1x RTX 4070 Ti for a total time of 0h 13m 45s.
-
 To start training:
 
 ```bash
@@ -40,13 +38,11 @@ python export.py --config config.json --weights_dir ./weights
 ## 2. Technical Report
 
 ### A. Summary
-
 The solution is primarily straightforward, relying on proper training and minimal outlier removal. It is based on a stateful GRU model with a gated transform mechanism that predicts lags (t0_lag1, t1_lag1 - targets from the previous step) as distributions, as well as targets t0 and t1 as scalars.
 
 ### B. Solution Architecture
 
 ### Model
-
 The model is initialized with random weights. Raw input features (32 dimensions) are fed directly into a GRU (2 layers × 128 units). The GRU also receives its hidden state from the previous step. The output from the GRU is then passed through a gated transform (specifically, a Gated Linear Unit - GLU). From the gated output, the lags t0_lag1 and t1_lag1 are predicted as Gaussian distributions using corresponding heads with 2 linear layers each. The lags are then returned.
 
 Next, the lags are concatenated with the gated output into a single tensor. This sample is fed separately into t1_head and t0_head, each consisting of 2 linear layers separated by ReLU activation.
@@ -54,11 +50,9 @@ Next, the lags are concatenated with the gated output into a single tensor. This
 Final output: t0_pred, t1_pred, t0_lag_mean, t0_lag_logvar, t1_lag_mean, t1_lag_logvar, h_new
 
 ### Data Preprocessing
-
 Input features are not preprocessed. However, for targets (clipped to [-6, 6]), a soft_winsorize operation (threshold=3.0) is applied around the mean values of t0 and t1. This helps smooth outliers and improve model generalization. This operation is primarily beneficial for t0, with minimal effect on t1. No other normalization or scaling is applied to the data.
 
 ### Training Strategy
-
 The loss function is a weighted sum of three components:
 
 - t0_loss - WPCLoss (competition quality metric)
@@ -79,14 +73,12 @@ Training is divided into 2 phases:
 The data was used as-is (train/valid split) without shuffling or cross-validation.
 
 ### C. Key boosters (critical steps)
-
 1. Using an ensemble of 6 similar models (differing only in initial weights) - results are obtained through weighted averaging
 2. Explicitly using lags for predicting t0 and t1 improves results (provided a quality metric for predicted targets is introduced - hence the importance of predicting them as distributions to assess uncertainty)
 3. Applying soft_winsorize to t0 provides a good boost for the training dataset
 4. Separate training of t0 and t1 (with gradient weighting for t1 during backward pass) to significantly reduce overfitting - preventing t1 from pulling gradients and weights towards itself during training and reducing its influence on t0
 
 ### D. "What didn't work"
-
 Data normalization attempts were unsuccessful. Despite efforts to align distributions by sign or magnitude, or to isolate certain signals from t1 by focusing on the linear signal of t1, these approaches did not succeed.
 
 Alternative architectural solutions were not successful. Experiments with separating bid/ask price/volumes into different RNN streams, using LSTM, Transformer, Retention Net, residuals, or skip-connections did not lead to improvements. The current architecture appears close to optimal.
