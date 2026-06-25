@@ -1,4 +1,4 @@
-# Wunder Predictorium Solution
+# High Frequency Market Prediction
 
 ## 1. Source Code & Scripts
 
